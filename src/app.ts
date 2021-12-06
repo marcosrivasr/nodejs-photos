@@ -9,7 +9,7 @@ import session, { Session } from "express-session";
 import ExifParser from "exif-parser";
 
 import User, { IUser } from "./model/user.model";
-import Photo, { IPhoto } from "./model/photo.model";
+import Photo, { IMetaData, IPhoto } from "./model/photo.model";
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -82,6 +82,8 @@ app.get("/home", async (req: Request, res: Response) => {
     const photos = await Photo.find({ userid: req.session.user._id! });
     console.log(photos);
 
+    const finalPhotos = Array<IMetaData>();
+
     photos.forEach(async (photo) => {
       const imgbuffer = await fs.readFile(
         join(__dirname, "../", "public/images", photo.filename)
@@ -92,10 +94,14 @@ app.get("/home", async (req: Request, res: Response) => {
       parser.enableImageSize(true);
       parser.enableReturnTags(true);
       const img = parser.parse();
-      console.log(img.tags);
+      //console.log(img.tags);
+      console.log(photo);
+      //console.log({ ...photo, ...img.tags });
+
+      finalPhotos.push({ ...photo.doc, ...img.tags });
     });
 
-    res.render("home/index", { user: req.session.user, photos: photos });
+    res.render("home/index", { user: req.session.user, photos: finalPhotos });
   } catch (error) {
     res.render("home/index", { user: req.session.user });
   }
