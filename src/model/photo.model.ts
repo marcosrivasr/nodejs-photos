@@ -6,6 +6,9 @@ export interface IPhoto {
   userid: string;
   size: number;
   mimeType: string;
+  favorite: boolean;
+  createdAt?: Date;
+  albums: string[];
 }
 
 export interface IMetaData extends IPhoto {
@@ -49,6 +52,9 @@ const PhotoSchema = new Mongoose.Schema({
   userid: { type: String, required: true },
   size: { type: Number, required: true },
   mimeType: { type: String, required: true },
+  createdAt: { type: Date, required: true },
+  favorite: { type: Boolean, required: true, default: false },
+  albums: { type: Array, required: false, default: [] },
 });
 
 export default Mongoose.model("Photo", PhotoSchema);

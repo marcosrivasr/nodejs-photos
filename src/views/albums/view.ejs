@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Albums</title>
+
+    <style>
+        .photos{
+            display: flex;
+            gap: 5px;
+        }
+        
+        .photos img{
+            height: 300px;
+        }
+    </style>
+</head>
+<body>
+    <h1><%= album.name %></h1>
+    <div class="photos">
+        <% photos.forEach(photo => { %>
+          <div>
+            <div class="select-container">
+              <input type="checkbox" class="select-photo">
+            </div>
+            <img src="http://localhost:3000/images/<%= photo.filename %>" />
+            <div class="actions-container">
+              <form action="/add-favorite">
+                <input type="text" name="photoid" value="<%= photo._id %>">
+                <button>Favorite</button>
+              </form>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+
+
+</body>
+</html>

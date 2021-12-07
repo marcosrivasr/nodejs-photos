@@ -9,6 +9,7 @@ import session, { Session } from "express-session";
 import ExifParser from "exif-parser";
 
 import User, { IUser } from "./model/user.model";
+import Album, { IAlbum } from "./model/album.model";
 import Photo, { IMetaData, IPhoto } from "./model/photo.model";
 
 const storage = multer.diskStorage({
@@ -80,28 +81,14 @@ app.get("/signup", (req: Request, res: Response) => {
 app.get("/home", async (req: Request, res: Response) => {
   try {
     const photos = await Photo.find({ userid: req.session.user._id! });
+    const albums = await Album.find({ userid: req.session.user._id! });
     console.log(photos);
 
-    const finalPhotos = Array<IMetaData>();
-
-    photos.forEach(async (photo) => {
-      const imgbuffer = await fs.readFile(
-        join(__dirname, "../", "public/images", photo.filename)
-      );
-      const parser = ExifParser.create(imgbuffer);
-      parser.enableBinaryFields(true);
-      parser.enableTagNames(true);
-      parser.enableImageSize(true);
-      parser.enableReturnTags(true);
-      const img = parser.parse();
-      //console.log(img.tags);
-      console.log(photo);
-      //console.log({ ...photo, ...img.tags });
-
-      finalPhotos.push({ ...photo.doc, ...img.tags });
+    res.render("home/index", {
+      user: req.session.user,
+      photos: photos,
+      albums: albums,
     });
-
-    res.render("home/index", { user: req.session.user, photos: finalPhotos });
   } catch (error) {
     res.render("home/index", { user: req.session.user });
   }
@@ -120,6 +107,9 @@ app.post(
         mimeType: file.mimetype,
         userid: req.session.user._id!,
         size: file.size,
+        createdAt: new Date(),
+        favorite: false,
+        albums: [],
       };
       const photo = new Photo(image);
       photo.save();
@@ -127,6 +117,78 @@ app.post(
     }
   }
 );
+
+app.get("/albums", async (req: Request, res: Response, next: NextFunction) => {
+  const albums = await Album.find({ userid: req.session.user._id! });
+  res.render("albums/index", { user: req.session.user, albums: albums });
+});
+
+app.get(
+  "/albums/:id",
+  async (req: Request, res: Response, next: NextFunction) => {
+    const albumid = req.params.id;
+
+    try {
+      let photos = await Photo.find({
+        albums: albumid,
+      });
+
+      let album = await Album.findById(albumid);
+
+      console.log({ albumid, photos });
+
+      photos = (<IPhoto[]>photos).filter((photo) =>
+        photo.albums.includes(albumid)
+      );
+
+      console.log("photos por id", albumid, photos);
+      res.render("albums/view", { user: req.session.user, photos, album });
+    } catch (error) {
+      console.log(error);
+    }
+  }
+);
+
+app.post("/create-album", (req: Request, res: Response) => {
+  const { name, isprivate }: { name: string; isprivate: string } = req.body;
+
+  const albumObject: IAlbum = {
+    name: name,
+    userid: req.session.user._id!,
+    isPrivate: isprivate === "on",
+    createdAt: new Date(),
+  };
+
+  console.log({ albumObject });
+
+  const album = new Album(albumObject);
+  album.save();
+  res.redirect("/albums");
+});
+
+app.post("/add-to-album", async (req: Request, res: Response) => {
+  const { ids, albumid }: { ids: string; albumid: string } = req.body;
+
+  const idPhotos = ids.split(",");
+
+  const promises = [];
+
+  for (let i = 0; i < idPhotos.length; i++) {
+    promises.push(
+      Photo.findByIdAndUpdate(idPhotos[i], {
+        $push: { albums: albumid },
+      })
+    );
+  }
+
+  await Promise.all(promises);
+
+  res.redirect("/home");
+});
+
+app.post("/update-photos", (req: Request, res: Response) => {
+  res.redirect("/albums");
+});
 
 app.post("/auth", async (req: Request, res: Response, next: NextFunction) => {
   const { username, password } = req.body;

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Albums</title>
+</head>
+<body>
+    
+    <form action="/create-album" method="post">
+        <input type="text" name="name" placeholder="Album name">
+        <input type="checkbox" name="isprivate" checked > Private album
+        <input type="submit" value="Create">
+    </form>
+
+
+
+    <div class="albums">
+        <% albums.forEach(album => { %>
+          <div>
+            <div><a href="/albums/<%= album._id %>"><%= album.name %></a></div>
+            <div class="actions-container">
+              
+            </div>
+          </div>
+        <% }); %>
+    </div>
+
+
+</body>
+</html>

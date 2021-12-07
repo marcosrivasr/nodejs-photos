@@ -25,10 +25,70 @@
       <input type="submit" value="Subir fotos" />
     </form>
 
+    <div id="add-album">
+      Agregar a album:
+
+      <form action="/add-to-album" method="post">
+        <input type="hidden" name="ids">
+        <select name="albumid">
+
+          <% albums.forEach(album => { %>
+            <option value="<%= album._id %>"><%= album.name %></option>
+          <% }) %>
+
+        </select>
+        <input type="submit" value="Agregar" />
+      </form>
+      
+    </div>
+
     <div class="photos">
       <% photos.forEach(photo => { %>
-      <img src="http://localhost:3000/images/<%= photo.filename %>" />
+        <div>
+          <div class="select-container">
+            <input type="checkbox" class="select-photo" value="<%= photo._id %>">
+          </div>
+          <img src="http://localhost:3000/images/<%= photo.filename %>" />
+          <div class="actions-container">
+            <form action="/add-favorite">
+              <input type="text" name="photoid" value="<%= photo._id %>">
+              <button>Favorite</button>
+            </form>
+          </div>
+        </div>
       <% }); %>
     </div>
+
+    <script>
+      const checkboxes = document.querySelectorAll('.select-photo');
+      checkboxes.forEach(checkbox => {
+
+        checkbox.addEventListener('click', (e) => {
+          if(checkSelected()){
+            addSelectedPhotos();
+            document.querySelector('#add-album').style.display = 'block';
+          }else{
+            document.querySelector('#add-album').style.display = 'none';
+          }
+        });
+
+      });
+
+      function checkSelected(){
+        let selected = false;
+        checkboxes.forEach(checkbox => {
+          if(checkbox.checked){
+            selected = true;
+          }
+        });
+        return selected;
+      }
+
+      function addSelectedPhotos(){
+        const cb = document.querySelectorAll('.select-photo:checked');
+        const ids = [...cb].map(c => c.value);
+        document.querySelector('input[name="ids"]').value = ids.join(',');
+      }
+    </script>
   </body>
 </html>
