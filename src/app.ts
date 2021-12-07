@@ -135,6 +135,8 @@ app.get(
 
       let album = await Album.findById(albumid);
 
+      const albums = await Album.find({ userid: req.session.user._id! });
+
       console.log({ albumid, photos });
 
       photos = (<IPhoto[]>photos).filter((photo) =>
@@ -142,7 +144,12 @@ app.get(
       );
 
       console.log("photos por id", albumid, photos);
-      res.render("albums/view", { user: req.session.user, photos, album });
+      res.render("albums/view", {
+        user: req.session.user,
+        photos,
+        album,
+        albums,
+      });
     } catch (error) {
       console.log(error);
     }
