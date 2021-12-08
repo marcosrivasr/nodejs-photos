@@ -10,23 +10,36 @@
         <% }) %>
 
       </select>
-      <input type="submit" value="Agregar" />
+      <input type="submit" value="Agregar" class="btn btn-primary" />
     </form>
-    
   </div>
 
-  <div class="photos">
+  <div class="photos container-fluid d-flex flex-wrap gap-1">
     <% photos.forEach(photo => { %>
       <div class="photo">
         <div class="select-container">
           <input type="checkbox" class="select-photo" value="<%= photo._id %>">
         </div>
-        <img src="http://localhost:3000/images/<%= photo.filename %>" />
-        <div class="actions-container position-relative mt-1">
-          <form action="/add-favorite">
-            <input type="hidden" name="photoid" value="<%= photo._id %>">
-            <button class="btn btn-danger">Favorite</button>
-          </form>
+        <a href="/view/<%= photo._id %>?origin=<%= origin %>">
+          <img src="http://localhost:3000/images/<%= photo.filename %>" />
+        </a>
+        <div class="actions-container">
+
+          <% if(photo.userid === user._id) {
+              if(photo.favorite){%>
+                <form action="/remove-favorite" method="post">
+                  <input type="hidden" name="photoid" value="<%= photo._id %>">
+                  <input type="hidden" name="origin" value="<%= origin %>">
+                  <button class="btn btn-danger">Remove Favorite</button>
+                </form>
+                <% }else{ %>
+                  <form action="/add-favorite" method="post">
+                    <input type="hidden" name="photoid" value="<%= photo._id %>">
+                    <input type="hidden" name="origin" value="<%= origin %>">
+                    <button class="btn btn-danger">Favorite</button>
+                  </form>
+                <% }%>
+          <% } %>
         </div>
       </div>
     <% }); %>

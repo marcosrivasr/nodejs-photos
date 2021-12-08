@@ -1,7 +1,7 @@
 import express, { NextFunction, Request, Response } from "express";
 import mongoose from "mongoose";
 import { join } from "path";
-import { promises as fs } from "fs";
+import cors from "cors";
 import dotenv from "dotenv";
 import multer from "multer";
 import session, { Session } from "express-session";
@@ -10,7 +10,7 @@ import ExifParser from "exif-parser";
 
 import User, { IUser } from "./model/user.model";
 import Album, { IAlbum } from "./model/album.model";
-import Photo, { IMetaData, IPhoto } from "./model/photo.model";
+import Photo, { IPhoto } from "./model/photo.model";
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -52,6 +52,7 @@ console.log(`sdsd`);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use(cors());
 
 //app.use(cookieParser());
 
@@ -67,18 +68,38 @@ const options: mongoose.ConnectOptions = {
   console.log("Conectado a Mongo DB...");
 })();
 
+function middleware(req: Request, res: Response, next: NextFunction) {
+  if (req.session.user) {
+    next();
+  } else {
+    res.redirect("/login");
+  }
+}
+
+function middlewareHome(req: Request, res: Response, next: NextFunction) {
+  if (req.session.user) {
+    res.redirect("/home");
+  } else {
+    next();
+  }
+}
+
+function middlewarePrivacy(req: Request, res: Response, next: NextFunction) {
+  console.log(req.route);
+}
+
 app.get("/", (req: Request, res: Response) => {
   res.render("index");
 });
 
-app.get("/login", (req: Request, res: Response) => {
+app.get("/login", middlewareHome, (req: Request, res: Response) => {
   res.render("login/index");
 });
-app.get("/signup", (req: Request, res: Response) => {
+app.get("/signup", middlewareHome, (req: Request, res: Response) => {
   res.render("login/signup");
 });
 
-app.get("/home", async (req: Request, res: Response) => {
+app.get("/home", middleware, async (req: Request, res: Response) => {
   try {
     const photos = await Photo.find({ userid: req.session.user._id! });
     const albums = await Album.find({ userid: req.session.user._id! });
@@ -96,6 +117,7 @@ app.get("/home", async (req: Request, res: Response) => {
 
 app.post(
   "/upload",
+  middleware,
   upload.array("photos", 10),
   (req: Request, res: Response) => {
     const files = req.files! as Express.Multer.File[];
@@ -118,13 +140,18 @@ app.post(
   }
 );
 
-app.get("/albums", async (req: Request, res: Response, next: NextFunction) => {
-  const albums = await Album.find({ userid: req.session.user._id! });
-  res.render("albums/index", { user: req.session.user, albums: albums });
-});
+app.get(
+  "/albums",
+  middleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    const albums = await Album.find({ userid: req.session.user._id! });
+    res.render("albums/index", { user: req.session.user, albums: albums });
+  }
+);
 
 app.get(
   "/albums/:id",
+  middleware,
   async (req: Request, res: Response, next: NextFunction) => {
     const albumid = req.params.id;
 
@@ -134,6 +161,11 @@ app.get(
       });
 
       let album = await Album.findById(albumid);
+
+      if (album.userid !== req.session.user._id && album.isprivate) {
+        res.render("error/privacy", {});
+        return;
+      }
 
       const albums = await Album.find({ userid: req.session.user._id! });
 
@@ -156,7 +188,29 @@ app.get(
   }
 );
 
-app.post("/create-album", (req: Request, res: Response) => {
+app.get(
+  "/view/:id",
+  middleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    const photoid = req.params.id as string;
+    const origin = req.query.origin as string;
+    try {
+      const photo = await Photo.findById(photoid);
+      const albums = await Album.find({ userid: req.session.user._id! });
+
+      res.render("layout/preview", {
+        user: req.session.user,
+        photo,
+        albums,
+        origin,
+      });
+    } catch (error) {
+      console.log(error);
+    }
+  }
+);
+
+app.post("/create-album", middleware, (req: Request, res: Response) => {
   const { name, isprivate }: { name: string; isprivate: string } = req.body;
 
   const albumObject: IAlbum = {
@@ -173,7 +227,7 @@ app.post("/create-album", (req: Request, res: Response) => {
   res.redirect("/albums");
 });
 
-app.post("/add-to-album", async (req: Request, res: Response) => {
+app.post("/add-to-album", middleware, async (req: Request, res: Response) => {
   const { ids, albumid }: { ids: string; albumid: string } = req.body;
 
   const idPhotos = ids.split(",");
@@ -193,51 +247,79 @@ app.post("/add-to-album", async (req: Request, res: Response) => {
   res.redirect("/home");
 });
 
-app.post("/update-photos", (req: Request, res: Response) => {
+app.post("/update-photos", middleware, (req: Request, res: Response) => {
   res.redirect("/albums");
 });
 
-app.post("/auth", async (req: Request, res: Response, next: NextFunction) => {
-  const { username, password } = req.body;
+app.post("/add-favorite", middleware, async (req: Request, res: Response) => {
+  const { photoid, origin }: { photoid: string; origin: string } = req.body;
 
-  try {
-    let user = new User();
-    const userExists = await user.usernameExists(username);
+  await Photo.findByIdAndUpdate(photoid, {
+    $set: { favorite: true },
+  });
 
-    if (userExists) {
-      user = await User.findOne({ username: username });
+  res.redirect(origin);
+});
+app.post(
+  "/remove-favorite",
+  middleware,
+  async (req: Request, res: Response) => {
+    const { photoid, origin }: { photoid: string; origin: string } = req.body;
 
-      const passwordCorrect = await user.isCorrectPassword(
-        password,
-        user.password
-      );
+    await Photo.findByIdAndUpdate(photoid, {
+      $set: { favorite: false },
+    });
 
-      if (passwordCorrect) {
-        //let accessToken = await user.createAccessToken();
-        //let refreshToken = await user.createRefreshToken();
+    res.redirect(origin);
+  }
+);
 
-        req.session.user = user;
+app.post(
+  "/auth",
+  middlewareHome,
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { username, password } = req.body;
 
-        console.log(req.session.user);
+    try {
+      let user = new User();
+      const userExists = await user.usernameExists(username);
 
-        /* return res.json({
+      if (userExists) {
+        user = await User.findOne({ username: username });
+
+        const passwordCorrect = await user.isCorrectPassword(
+          password,
+          user.password
+        );
+
+        if (passwordCorrect) {
+          //let accessToken = await user.createAccessToken();
+          //let refreshToken = await user.createRefreshToken();
+
+          req.session.user = user;
+
+          console.log(req.session.user);
+
+          /* return res.json({
           accessToken,
           refreshToken,
         }); */
-        res.redirect("/home");
+          res.redirect("/home");
+        } else {
+          return next(new Error("username and/or password incorrect"));
+        }
       } else {
-        return next(new Error("username and/or password incorrect"));
+        return next(new Error("user does not exist"));
       }
-    } else {
-      return next(new Error("user does not exist"));
+    } catch (err) {
+      console.log(err);
     }
-  } catch (err) {
-    console.log(err);
   }
-});
+);
 
 app.post(
   "/register",
+  middlewareHome,
   async (req: Request, res: Response, next: NextFunction) => {
     const { username, password, name } = req.body;
 
