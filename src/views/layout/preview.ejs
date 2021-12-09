@@ -9,9 +9,9 @@
     <link rel="stylesheet" href="http://localhost:3000/styles/main.css">
     <title>Albums</title>
 </head>
-<body>
+<body class="bg-dark">
     <%- include ("../layout/navbar") %>
-    <div class="bg-dark d-flex align-items-center justify-content-center">
+    <div class="bg-dark d-flex align-items-center justify-content-center" style="min-height: 94vh;">
         <div class="d-flex flex-column p-5">
             <a href="http://localhost:3000<%= (origin)? origin : 'home' %>" class="link-light pb-3">Go back to previous page</a>
             <img src="http://localhost:3000/images/<%= photo.filename %>" class="mw-100" />
